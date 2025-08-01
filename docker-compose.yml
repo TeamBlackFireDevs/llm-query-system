@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/querydb
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./vector_index:/app/vector_index
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=querydb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data: 
