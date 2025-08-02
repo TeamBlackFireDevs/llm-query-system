@@ -10,8 +10,15 @@ import email
 from email.policy import default
 from sqlalchemy.orm import Session
 from models.database_models import Document, DocumentChunk
-from models.pydantic_models import DocumentType
+from enum import Enum
+
 from config import settings
+
+class DocumentType(str, Enum):
+    PDF = "pdf"
+    DOCX = "docx"
+    TXT = "txt"
+    EMAIL = "email"
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +45,9 @@ class DocumentProcessor:
             # Create document record
             document = Document(
                 filename=unique_filename,
-                original_filename=filename,
                 file_path=str(file_path),
-                file_size=len(file_content),
-                content_type=content_type,
-                document_type=doc_type.value,
-                processing_status="processing"
+                file_type=doc_type.value,
+                file_size=len(file_content)
             )
             
             db.add(document)
@@ -61,25 +65,16 @@ class DocumentProcessor:
                     chunk = DocumentChunk(
                         document_id=document.id,
                         chunk_index=i,
-                        content=chunk_content,
-                        content_hash=chunk_hash,
-                        metadata={
-                            "chunk_size": len(chunk_content),
-                            "document_type": doc_type.value
-                        }
+                        content=chunk_content
                     )
                     db.add(chunk)
                 
                 # Update document status
-                document.processing_status = "completed"
-                document.chunk_count = len(chunks)
                 db.commit()
                 
                 logger.info(f"Successfully processed document {filename} with {len(chunks)} chunks")
                 
             except Exception as e:
-                document.processing_status = "failed"
-                document.processing_error = str(e)
                 db.commit()
                 logger.error(f"Failed to process document {filename}: {str(e)}")
                 raise

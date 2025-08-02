@@ -84,7 +84,7 @@ class VectorStore:
                 chunk_ids.append(chunk.id)
                 
                 # Store embedding in database
-                chunk.embedding_vector = embedding
+                chunk.embedding = embedding
                 db.add(chunk)
             
             if vectors:

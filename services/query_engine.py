@@ -32,23 +32,12 @@ class QueryEngine:
             # Convert to response format
             result_chunks = []
             for chunk, similarity_score in similar_chunks:
-                # Get document info
-                document = db.query(Document).filter(Document.id == chunk.document_id).first()
-                
-                chunk_metadata = chunk.metadata.copy() if chunk.metadata else {}
-                if query_request.include_metadata and document:
-                    chunk_metadata.update({
-                        "document_filename": document.original_filename,
-                        "document_type": document.document_type,
-                        "upload_timestamp": document.upload_timestamp.isoformat(),
-                        "chunk_index": chunk.chunk_index
-                    })
-                
                 result_chunk = PydanticDocumentChunk(
-                    chunk_id=chunk.id,
+                    id=chunk.id,
                     document_id=chunk.document_id,
+                    chunk_index=chunk.chunk_index,
                     content=chunk.content,
-                    metadata=chunk_metadata,
+                    embedding=chunk.embedding,
                     similarity_score=similarity_score
                 )
                 result_chunks.append(result_chunk)
@@ -57,7 +46,7 @@ class QueryEngine:
             
             # Generate explanation if requested
             explanation = None
-            if query_request.include_metadata and result_chunks:
+            if result_chunks:
                 explanation = await self._generate_explanation(
                     query_request.query, 
                     result_chunks[:3]  # Use top 3 results for explanation
@@ -66,7 +55,7 @@ class QueryEngine:
             # Log query
             query_log = QueryLog(
                 query_text=query_request.query,
-                query_type=query_request.query_type.value,
+                query_type="semantic",  # Default query type
                 document_ids=query_request.document_ids,
                 results_count=len(result_chunks),
                 processing_time=processing_time,
@@ -79,8 +68,6 @@ class QueryEngine:
                 query=query_request.query,
                 results=result_chunks,
                 total_results=len(result_chunks),
-                processing_time=processing_time,
-                query_type=query_request.query_type.value,
                 explanation=explanation
             )
             
