@@ -15,7 +15,7 @@ class PydanticDocument(DocumentBase):
     id: int
     file_path: str
     upload_timestamp: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -32,7 +32,7 @@ class PydanticDocumentChunk(DocumentChunkBase):
     document_id: int
     embedding: Optional[str] = None
     similarity_score: Optional[float] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -48,3 +48,32 @@ class QueryResponse(BaseModel):
     total_results: int
     explanation: Optional[str] = None
     suggested_queries: Optional[List[str]] = None
+
+# ADD THESE MISSING MODELS:
+
+class DocumentUploadResponse(BaseModel):
+    message: str
+    document_id: int
+    filename: str
+    chunks_created: int
+    file_size: int
+
+class DocumentListResponse(BaseModel):
+    documents: List[PydanticDocument]
+    total_count: int
+
+class DocumentSummaryResponse(BaseModel):
+    document_id: int
+    filename: str
+    summary: Optional[str]
+    chunk_count: int
+
+class HealthResponse(BaseModel):
+    status: str
+    timestamp: datetime
+    version: str
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: Optional[str] = None
+    timestamp: datetime

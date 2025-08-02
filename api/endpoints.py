@@ -8,8 +8,14 @@ from datetime import datetime
 
 from database import get_db
 from models.pydantic_models import (
-    QueryRequest, QueryResponse, DocumentUploadResponse, 
-    DocumentListResponse, DocumentInfo, HealthResponse, ErrorResponse
+    QueryRequest,
+    QueryResponse,
+    DocumentUploadResponse,
+    DocumentListResponse,
+    DocumentSummaryResponse,
+    HealthResponse,
+    ErrorResponse,
+    PydanticDocument
 )
 from models.database_models import Document, DocumentChunk
 from services.document_processor import DocumentProcessor
@@ -74,11 +80,11 @@ async def upload_document(
         processing_time = time.time() - start_time
         
         return DocumentUploadResponse(
-            document_id=document.id,
-            filename=document.original_filename,
-            status="success",
             message=f"Document processed successfully with {len(chunks)} chunks",
-            processing_time=processing_time
+            document_id=document.id,
+            filename=document.filename,
+            chunks_created=len(chunks),
+            file_size=document.file_size
         )
         
     except HTTPException:
@@ -132,15 +138,13 @@ async def list_documents(
         # Convert to response format
         document_infos = []
         for doc in documents:
-            doc_info = DocumentInfo(
-                document_id=doc.id,
-                filename=doc.original_filename,
-                document_type=doc.document_type,
+            doc_info = PydanticDocument(
+                id=doc.id,
+                filename=doc.filename,
+                file_type=doc.file_type,
                 file_size=doc.file_size,
-                upload_timestamp=doc.upload_timestamp,
-                processing_status=doc.processing_status,
-                chunk_count=doc.chunk_count,
-                metadata=doc.metadata or {}
+                file_path=doc.file_path,
+                upload_timestamp=doc.upload_timestamp
             )
             document_infos.append(doc_info)
         
@@ -173,15 +177,13 @@ async def get_document(
         # Get document summary
         summary = await query_engine.get_document_summary(document_id, db)
         
-        doc_info = DocumentInfo(
-            document_id=document.id,
-            filename=document.original_filename,
-            document_type=document.document_type,
+        doc_info = PydanticDocument(
+            id=document.id,
+            filename=document.filename,
+            file_type=document.file_type,
             file_size=document.file_size,
-            upload_timestamp=document.upload_timestamp,
-            processing_status=document.processing_status,
-            chunk_count=document.chunk_count,
-            metadata=document.metadata or {}
+            file_path=document.file_path,
+            upload_timestamp=document.upload_timestamp
         )
         
         return {
@@ -250,22 +252,16 @@ async def health_check(db: Session = Depends(get_db)):
         
         return HealthResponse(
             status="healthy",
-            service="LLM Query-Retrieval System",
-            version="1.0.0",
             timestamp=datetime.now(),
-            database_status=db_status,
-            vector_store_status=vector_status
+            version="1.0.0"
         )
         
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return HealthResponse(
             status="unhealthy",
-            service="LLM Query-Retrieval System",
-            version="1.0.0",
             timestamp=datetime.now(),
-            database_status="unhealthy",
-            vector_store_status="unknown"
+            version="1.0.0"
         )
 
 @router.get("/stats")
@@ -274,9 +270,6 @@ async def get_system_stats(db: Session = Depends(get_db)):
     try:
         # Document statistics
         total_documents = db.query(Document).count()
-        processing_documents = db.query(Document).filter(Document.processing_status == "processing").count()
-        completed_documents = db.query(Document).filter(Document.processing_status == "completed").count()
-        failed_documents = db.query(Document).filter(Document.processing_status == "failed").count()
         
         # Chunk statistics
         total_chunks = db.query(DocumentChunk).count()
@@ -286,10 +279,7 @@ async def get_system_stats(db: Session = Depends(get_db)):
         
         return {
             "documents": {
-                "total": total_documents,
-                "processing": processing_documents,
-                "completed": completed_documents,
-                "failed": failed_documents
+                "total": total_documents
             },
             "chunks": {
                 "total": total_chunks
